@@ -10,7 +10,7 @@ const SignUp = ({ onBack }) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/signup", {
+      const res = await fetch("https://striver-pod-backend-3.onrender.com/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password })

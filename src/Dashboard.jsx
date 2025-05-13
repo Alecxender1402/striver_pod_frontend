@@ -74,7 +74,7 @@ const Dashboard = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    fetch('http://localhost:5000/api/completed-problems', {
+    fetch('https://striver-pod-backend-3.onrender.com/api/completed-problems', {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => res.json())
@@ -109,7 +109,7 @@ const Dashboard = () => {
     setCompleted(prev =>
       checked ? [...prev, problemId] : prev.filter(id => id !== problemId)
     );
-    await fetch('http://localhost:5000/api/complete-problem', {
+    await fetch('https://striver-pod-backend-3.onrender.com/api/complete-problem', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
