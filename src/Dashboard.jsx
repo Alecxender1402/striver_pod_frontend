@@ -128,7 +128,7 @@ const Dashboard = () => {
       flexDirection: "column"
     }}>
       {/* Top Bar */}
-      <div style={{
+      {/* <div style={{
         width: "100%",
         background: "#fff",
         boxShadow: "0 2px 8px rgba(37,99,235,0.10)",
@@ -145,7 +145,7 @@ const Dashboard = () => {
         <span style={{ color: "#2563eb", fontWeight: 700, fontSize: "1.1rem" }}>
           Striver A2Z DSA Pod
         </span>
-      </div>
+      </div> */}
       {/* Main Content */}
       <div style={{
         display: "flex",
