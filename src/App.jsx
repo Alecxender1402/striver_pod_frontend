@@ -36,6 +36,39 @@ const App = () => {
     }
   }, []);
 
+  // Inject mobile-specific styles for inline elements
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media (max-width: 600px) {
+        header {
+          padding: 2rem 0.5rem 1rem 0.5rem !important;
+        }
+        h1 {
+          font-size: 2rem !important;
+        }
+        h2 {
+          font-size: 1.1rem !important;
+        }
+        #features-section {
+          flex-direction: column !important;
+          gap: 1.2rem !important;
+        }
+        .feature-card {
+          min-width: 0 !important;
+          max-width: 100% !important;
+          padding: 1.2rem 0.7rem !important;
+        }
+        footer {
+          font-size: 0.95rem !important;
+          padding: 1rem 0.5rem 0.5rem 0.5rem !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
+
   return (
     <div
       style={{
@@ -194,7 +227,7 @@ const App = () => {
       {/* Main Content Switcher */}
       {page === "home" && (
         <section
-          id="features"
+          id="features-section"
           style={{
             width: "100%",
             maxWidth: 1100,
@@ -209,6 +242,7 @@ const App = () => {
           {features.map((f, i) => (
             <div
               key={i}
+              className="feature-card"
               style={{
                 background: "#fff",
                 borderRadius: "1.2rem",
