@@ -10,3 +10,19 @@
   color: #000 !important;
   font-weight: bold;
 } 
+
+.calendar-future-date {
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.5;
+}
+
+.react-calendar__tile:disabled {
+  color: #9ca3af !important;
+  cursor: not-allowed !important;
+  opacity: 0.5;
+}
+
+.react-calendar__tile:disabled:hover {
+  background: none !important;
+}
