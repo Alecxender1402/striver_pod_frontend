@@ -125,7 +125,7 @@ const Dashboard = () => {
     fetchCompletedProblems();
   }, [API_BASE_URL]);
 
-  // Generate daily POD questions - 10 problems per day, locked to specific dates
+  // Generate daily POD questions - 10 UNSOLVED problems per day, locked to specific dates
   useEffect(() => {
     if (!problems.length) return;
     
@@ -142,27 +142,106 @@ const Dashboard = () => {
     // Get or create locked questions for this specific date
     let lockedQuestions = JSON.parse(localStorage.getItem('dailyPOD') || '{}');
     
-    if (!lockedQuestions[dateKey]) {
-      // Generate 10 questions for this date using all available problems
-      const seed = getSeedFromDate(selectedDate);
-      const shuffled = seededShuffle(problems, seed);
+    // Filter out completed problems from existing daily problems
+    if (lockedQuestions[dateKey]) {
+      const existingProblems = lockedQuestions[dateKey];
+      const unsolvedExisting = existingProblems.filter(id => !completed.includes(id));
       
-      // Take exactly 10 problems for this date
-      const selectedProblems = shuffled.slice(0, 10);
-      lockedQuestions[dateKey] = selectedProblems.map(p => p.idx);
+      // If we have fewer than 10 unsolved problems, generate new ones
+      if (unsolvedExisting.length < 10) {
+        // Get all unsolved problems
+        const unsolvedProblems = problems.filter(p => !completed.includes(p.idx));
+        
+        if (unsolvedProblems.length > 0) {
+          // Generate seed for this date to ensure consistency
+          const seed = getSeedFromDate(selectedDate);
+          const shuffled = seededShuffle(unsolvedProblems, seed);
+          
+          // Take problems to fill up to 10, avoiding duplicates
+          const existingIds = new Set(unsolvedExisting);
+          const newProblems = [];
+          
+          for (const problem of shuffled) {
+            if (!existingIds.has(problem.idx) && newProblems.length + unsolvedExisting.length < 10) {
+              newProblems.push(problem.idx);
+              existingIds.add(problem.idx);
+            }
+          }
+          
+          // Update the daily problems with unsolved ones
+          lockedQuestions[dateKey] = [...unsolvedExisting, ...newProblems];
+        } else {
+          // No unsolved problems available
+          lockedQuestions[dateKey] = unsolvedExisting;
+        }
+        
+        // Save to localStorage and sync with server
+        localStorage.setItem('dailyPOD', JSON.stringify(lockedQuestions));
+        syncDailyPODToServer(lockedQuestions);
+      } else {
+        // We have enough unsolved problems, just update the stored data
+        lockedQuestions[dateKey] = unsolvedExisting;
+        localStorage.setItem('dailyPOD', JSON.stringify(lockedQuestions));
+        syncDailyPODToServer(lockedQuestions);
+      }
+    } else {
+      // Generate fresh 10 unsolved problems for this date
+      const unsolvedProblems = problems.filter(p => !completed.includes(p.idx));
       
-      // Save to localStorage
-      localStorage.setItem('dailyPOD', JSON.stringify(lockedQuestions));
+      if (unsolvedProblems.length > 0) {
+        const seed = getSeedFromDate(selectedDate);
+        const shuffled = seededShuffle(unsolvedProblems, seed);
+        
+        // Take up to 10 problems (or all available if less than 10)
+        const selectedProblems = shuffled.slice(0, Math.min(10, unsolvedProblems.length));
+        lockedQuestions[dateKey] = selectedProblems.map(p => p.idx);
+        
+        // Save to localStorage and sync with server
+        localStorage.setItem('dailyPOD', JSON.stringify(lockedQuestions));
+        syncDailyPODToServer(lockedQuestions);
+      } else {
+        // No unsolved problems available
+        lockedQuestions[dateKey] = [];
+        localStorage.setItem('dailyPOD', JSON.stringify(lockedQuestions));
+      }
     }
     
-    // Get the problems for this date
-    const dailyProblemIds = lockedQuestions[dateKey];
+    // Get the final problems for this date (all should be unsolved)
+    const dailyProblemIds = lockedQuestions[dateKey] || [];
     const dailyProblems = dailyProblemIds
       .map(id => problems.find(p => p.idx === id))
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter(p => !completed.includes(p.idx)); // Double check - only show unsolved
+    
+    // Debug logging
+    console.log(`POD for ${dateKey}: ${dailyProblems.length} unsolved problems`, {
+      totalAvailable: problems.length,
+      totalCompleted: completed.length,
+      unsolvedCount: problems.filter(p => !completed.includes(p.idx)).length,
+      todaysProblems: dailyProblems.map(p => ({ id: p.idx, name: p.name, solved: completed.includes(p.idx) }))
+    });
     
     setTodaysProblems(dailyProblems);
-  }, [date, problems]);
+  }, [date, problems, completed]); // Added completed as dependency
+
+  // Sync daily POD to server
+  const syncDailyPODToServer = async (dailyPODData) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    try {
+      await fetch(`${API_BASE_URL}/api/save-daily-pod`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ dailyPOD: dailyPODData })
+      });
+    } catch (error) {
+      console.error('Error syncing daily POD to server:', error);
+    }
+  };
 
   // Enhanced problem completion handler with better error handling
   const handleCheck = useCallback(async (problemId, checked) => {
@@ -194,6 +273,11 @@ const Dashboard = () => {
       const data = await response.json();
       setCompleted(data.completedProblems || []);
       setApiError(null);
+      
+      // Clean up future POD data to ensure fresh unsolved problems
+      if (checked) {
+        cleanupFuturePODData(problemId);
+      }
     } catch (error) {
       console.error('Error updating problem completion:', error);
       setApiError('Failed to update problem completion');
@@ -203,6 +287,37 @@ const Dashboard = () => {
       );
     }
   }, [API_BASE_URL]);
+
+  // Clean up future POD data when a problem is completed
+  const cleanupFuturePODData = (completedProblemId) => {
+    const today = new Date();
+    let lockedQuestions = JSON.parse(localStorage.getItem('dailyPOD') || '{}');
+    let updated = false;
+    
+    // Remove completed problem from ALL dates (past and future)
+    Object.keys(lockedQuestions).forEach(dateKey => {
+      const problems = lockedQuestions[dateKey];
+      if (problems.includes(completedProblemId)) {
+        lockedQuestions[dateKey] = problems.filter(id => id !== completedProblemId);
+        updated = true;
+        console.log(`Removed completed problem ${completedProblemId} from date ${dateKey}`);
+      }
+    });
+    
+    if (updated) {
+      localStorage.setItem('dailyPOD', JSON.stringify(lockedQuestions));
+      syncDailyPODToServer(lockedQuestions);
+      console.log('POD data cleaned up after problem completion');
+    }
+  };
+
+  // Regenerate POD data to ensure only unsolved problems appear
+  const regeneratePODForDate = (targetDate, unsolvedProblems) => {
+    const dateKey = targetDate.toISOString().slice(0, 10);
+    const seed = getSeedFromDate(targetDate);
+    const shuffled = seededShuffle(unsolvedProblems, seed);
+    return shuffled.slice(0, Math.min(10, unsolvedProblems.length)).map(p => p.idx);
+  };
 
   // Check if selected date is in the future
   const isDateInFuture = useMemo(() => {
