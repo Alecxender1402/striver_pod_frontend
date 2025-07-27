@@ -3,6 +3,7 @@ import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import './calendar-black.css';
 import ProblemSearch from './ProblemSearch';
+import Spinner from './components/Spinner.jsx';
 
 // Helper to fetch and parse the problems file
 const useProblems = () => {
@@ -367,8 +368,14 @@ const Dashboard = () => {
         background: "#f5f7fa"
       }}>
         <div style={{ textAlign: "center", color: "#2563eb" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "1rem" }}>📚</div>
-          <div>Loading problems...</div>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: '1.5rem'
+          }}>
+            <Spinner size={40} speed="1s" />
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 500 }}>Loading problems...</div>
         </div>
       </div>
     );

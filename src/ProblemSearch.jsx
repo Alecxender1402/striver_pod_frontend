@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import Spinner from './components/Spinner.jsx';
 
 // Simple debounce hook
 const useDebounce = (value, delay) => {
@@ -200,10 +201,11 @@ const ProblemSearch = ({ onProblemSelect, API_BASE_URL }) => {
             right: '1rem',
             top: '50%',
             transform: 'translateY(-50%)',
-            color: '#2563eb',
-            fontSize: '0.9rem'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}>
-            🔄
+            <Spinner size={18} speed="0.6s" />
           </div>
         )}
       </div>
