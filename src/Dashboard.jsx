@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import './calendar-black.css';
+import ProblemSearch from './ProblemSearch';
 
 // Helper to fetch and parse the problems file
 const useProblems = () => {
@@ -18,25 +19,45 @@ const useProblems = () => {
         }
         const text = await response.text();
         const lines = text.trim().split("\n").slice(1); // skip header
+        
+        // Proper CSV parsing function to handle quoted fields
+        const parseCSVLine = (line) => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+              if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++; // skip next quote
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+        
         const parsed = lines.map(line => {
-          // Split by comma, but handle quoted names with commas
-          const match = line.match(/^(\d+),"?([^"]+?)"?,(Easy|Medium|Hard)$/);
-          if (match) {
+          const fields = parseCSVLine(line);
+          if (fields.length >= 3) {
             return {
-              idx: parseInt(match[1], 10),
-              problem_name: match[2],
-              difficulty: match[3],
-            };
-          } else {
-            // fallback for lines without quotes
-            const [idx, problem_name, difficulty] = line.split(",");
-            return { 
-              idx: parseInt(idx, 10), 
-              problem_name, 
-              difficulty 
+              idx: parseInt(fields[0], 10),
+              problem_name: fields[1],
+              difficulty: fields[2],
             };
           }
-        }).filter(problem => problem.idx && problem.problem_name && problem.difficulty);
+          return null;
+        }).filter(problem => problem && problem.idx && problem.problem_name && problem.difficulty);
         setProblems(parsed);
       } catch (err) {
         console.error('Error fetching problems:', err);
@@ -296,6 +317,21 @@ const Dashboard = () => {
     }
   }, [API_BASE_URL]);
 
+  // Handle problem selection from search
+  const handleProblemSelect = useCallback((problem) => {
+    // You can customize this behavior - for now, let's just scroll to it in the current view
+    console.log('Selected problem:', problem);
+    
+    // If we're not in "All Problems" view, switch to it
+    if (!showAll) {
+      setShowAll(true);
+    }
+    
+    // Optional: You could also navigate to a specific problem or highlight it
+    // For now, we'll just log it and show a brief notification
+    alert(`Selected: ${problem.problem_name} (${problem.difficulty})`);
+  }, [showAll]);
+
   // Check if selected date is in the future
   const isDateInFuture = useMemo(() => {
     const today = new Date();
@@ -376,6 +412,19 @@ const Dashboard = () => {
           ⚠️ {apiError}
         </div>
       )}
+      
+      {/* Search Component */}
+      <div style={{ 
+        width: "100%", 
+        maxWidth: "1200px", 
+        margin: "0 auto", 
+        padding: "1rem 2rem 0 2rem" 
+      }}>
+        <ProblemSearch 
+          onProblemSelect={handleProblemSelect}
+          API_BASE_URL={API_BASE_URL}
+        />
+      </div>
       
       {/* Main Content */}
       <div style={{
